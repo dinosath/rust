@@ -1,9 +1,12 @@
 //@ run-pass
+//@ aux-build:attributes_aux.rs
 
 #![feature(type_info)]
 #![feature(register_tool)]
 #![register_tool(my_tool)]
 #![allow(dead_code)]
+
+extern crate attributes_aux;
 
 use std::mem::type_info::{Type, TypeKind};
 
@@ -54,12 +57,47 @@ fn main() {
     assert_eq!(ty.attributes[0].path, "my_tool::category");
     assert_eq!(ty.attributes[0].args, "test_value");
 
-    // Verify cross-crate type attributes are accessible.
-    let Type { kind: TypeKind::Enum(ty), .. } = (const { Type::of::<Option<i32>>() }) else {
+    // Verify cross-crate type, variant, and field attributes survive metadata encoding.
+    // Only encoded unparsed attrs should appear in `attributes`; parsed built-ins remain
+    // observable through dedicated structural fields instead.
+    let Type { kind: TypeKind::Enum(ty), .. } =
+        (const { Type::of::<attributes_aux::CrossCrateEnum>() })
+    else {
         panic!()
     };
-    let _ = ty.attributes;
-    for v in ty.variants {
-        let _ = v.attributes;
-    }
+
+    assert!(ty.non_exhaustive);
+    assert_eq!(ty.attributes.len(), 1);
+    assert_eq!(ty.attributes[0].path, "my_tool::enum_tag");
+    assert_eq!(ty.attributes[0].args, "cross_crate");
+
+    assert_eq!(ty.variants.len(), 2);
+    assert_eq!(ty.variants[0].attributes.len(), 1);
+    assert_eq!(ty.variants[0].attributes[0].path, "my_tool::variant_tag");
+    assert_eq!(ty.variants[0].attributes[0].args, "variant_a");
+    assert_eq!(ty.variants[0].fields.len(), 1);
+    assert_eq!(ty.variants[0].fields[0].attributes.len(), 1);
+    assert_eq!(ty.variants[0].fields[0].attributes[0].path, "my_tool::field_tag");
+    assert_eq!(ty.variants[0].fields[0].attributes[0].args, "variant_field");
+
+    assert_eq!(ty.variants[1].attributes.len(), 1);
+    assert_eq!(ty.variants[1].attributes[0].path, "my_tool::empty_variant_tag");
+    assert_eq!(ty.variants[1].attributes[0].args, "");
+
+    let Type { kind: TypeKind::Struct(ty), .. } =
+        (const { Type::of::<attributes_aux::CrossCrateStruct>() })
+    else {
+        panic!()
+    };
+
+    assert!(ty.non_exhaustive);
+    assert_eq!(ty.attributes.len(), 1);
+    assert_eq!(ty.attributes[0].path, "my_tool::struct_tag");
+    assert_eq!(ty.attributes[0].args, "cross_crate_struct");
+    assert_eq!(ty.fields.len(), 2);
+    assert_eq!(ty.fields[0].attributes.len(), 1);
+    assert_eq!(ty.fields[0].attributes[0].path, "my_tool::field_tag");
+    assert_eq!(ty.fields[0].attributes[0].args, "public_field");
+    // Lint attrs are intentionally not encoded into downstream metadata.
+    assert!(ty.fields[1].attributes.is_empty());
 }
