@@ -28,11 +28,19 @@ struct EqAttr {
     x: u8,
 }
 
+#[repr(C)]
+#[allow(dead_code)]
+struct ReprCStruct {
+    x: u32,
+    y: u8,
+}
+
 fn main() {
+    // #[doc = "..."] is a parsed built-in attribute, not reflected in `attributes`.
     let Type { kind: TypeKind::Struct(ty), .. } = (const { Type::of::<AttrStruct>() }) else {
         panic!()
     };
-    assert_eq!(ty.attributes.len(), 1);
+    assert_eq!(ty.attributes.len(), 1); // only `allow`, not `doc`
     assert_eq!(ty.attributes[0].path, "allow");
     assert_eq!(ty.attributes[0].args, "dead_code");
     assert_eq!(ty.fields[0].attributes.len(), 1);
@@ -52,6 +60,17 @@ fn main() {
     assert_eq!(ty.attributes[0].path, "my_tool::category");
     assert_eq!(ty.attributes[0].args, "test_value");
 
+    // #[repr(C)] is a parsed built-in attribute, not reflected in `attributes`.
+    let Type { kind: TypeKind::Struct(ty), .. } = (const { Type::of::<ReprCStruct>() }) else {
+        panic!()
+    };
+    assert_eq!(ty.attributes.len(), 1); // only `allow`, not `repr`
+    assert_eq!(ty.attributes[0].path, "allow");
+    assert_eq!(ty.attributes[0].args, "dead_code");
+
+    // Cross-crate: only tool/custom attributes survive metadata serialization.
+    // Lint attributes like `#[allow(...)]` are local concerns and are not
+    // preserved in crate metadata, so they do not appear here.
     let Type { kind: TypeKind::Enum(ty), .. } =
         (const { Type::of::<attributes_aux::CrossCrateEnum>() })
     else {
@@ -83,6 +102,7 @@ fn main() {
     };
 
     assert!(ty.non_exhaustive);
+    // Same as above: only tool/custom attributes are visible cross-crate.
     assert_eq!(ty.attributes.len(), 1);
     assert_eq!(ty.attributes[0].path, "my_tool::struct_tag");
     assert_eq!(ty.attributes[0].args, "cross_crate_struct");
