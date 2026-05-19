@@ -271,11 +271,16 @@ pub struct Const {
 
 /// Compile-time information about an attribute applied to a type, field, or variant.
 ///
-/// Only **unparsed** (custom / tool) attributes are reflected here.
-/// Built-in attributes that the compiler parses into internal representations
-/// (for example, `#[repr]` or `#[non_exhaustive]`) are **not** included in
-/// this MVP, even when some of their effects may be observable elsewhere in
-/// the reflected type information.
+/// Only attributes that remain in unparsed form are reflected here (this includes
+/// lint attributes like `#[allow(...)]`, tool attributes like `#[clippy::...]`,
+/// and custom attributes).
+/// Built-in attributes that the compiler parses into dedicated internal
+/// representations (for example, `#[repr]` or `#[non_exhaustive]`) are excluded —
+/// their effects are exposed through other fields in the type info instead.
+///
+/// Note: lint attributes (e.g. `#[allow(...)]`) are only visible when reflecting
+/// types defined in the current crate. Cross-crate reflection only exposes tool
+/// and custom attributes.
 ///
 /// Attributes are returned in source order.
 ///

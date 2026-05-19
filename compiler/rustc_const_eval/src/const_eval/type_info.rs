@@ -550,4 +550,85 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
         }
         interp_ok(())
     }
+
+    /// Writes the `attributes` slice for a given `DefId` (or an empty slice if `None`).
+    ///
+    /// Only attributes that remain in unparsed form (`Attribute::Unparsed`) are reflected.
+    /// Attributes the compiler parses into dedicated internal representations
+    /// (e.g. `#[repr]`, `#[non_exhaustive]`) are excluded — their effects are
+    /// exposed through other fields in the type info instead.
+    pub(crate) fn write_attributes_type_info(
+        &mut self,
+        place: impl Writeable<'tcx, CtfeProvenance>,
+        def_id: Option<DefId>,
+    ) -> InterpResult<'tcx> {
+        let attrs: Vec<(&[rustc_span::Symbol], String)> = match def_id {
+            Some(def_id) => {
+                let all_attrs = def_id.get_attrs(&self.tcx.tcx);
+                all_attrs
+                    .iter()
+                    .filter_map(|attr| match attr {
+                        rustc_hir::Attribute::Unparsed(item) => {
+                            let args_str = match &item.args {
+                                rustc_hir::AttrArgs::Empty => String::new(),
+                                rustc_hir::AttrArgs::Delimited(delim) => {
+                                    rustc_ast_pretty::pprust::tts_to_string(&delim.tokens)
+                                }
+                                rustc_hir::AttrArgs::Eq { expr, .. } => {
+                                    expr.symbol.as_str().to_owned()
+                                }
+                            };
+                            Some((&*item.path.segments, args_str))
+                        }
+                        _ => None,
+                    })
+                    .collect()
+            }
+            None => Vec::new(),
+        };
+
+        self.allocate_fill_and_write_slice_ptr(place, attrs.len() as u64, |this, i, place| {
+            let (path_segments, ref args) = attrs[i as usize];
+            this.write_attribute_type_info(place, path_segments, args)
+        })
+    }
+
+    /// Writes a single `type_info::Attribute` to the given place.
+    ///
+    /// For the `path` field, joins all segments with `"::"` (e.g. `[clippy, complexity]` becomes
+    /// `"clippy::complexity"`), then writes the resulting `&str` via `allocate_str_dedup`.
+    ///
+    /// For the `args` field, writes the pre-formatted argument string produced by the caller:
+    /// - `AttrArgs::Empty` → `""`
+    /// - `AttrArgs::Delimited` → pretty-printed token stream (e.g. `"dead_code"`)
+    /// - `AttrArgs::Eq` → the literal symbol value (e.g. `"my_crate"` for `#[crate_name = "my_crate"]`)
+    fn write_attribute_type_info(
+        &mut self,
+        place: impl Writeable<'tcx, CtfeProvenance>,
+        path_segments: &[rustc_span::Symbol],
+        args: &str,
+    ) -> InterpResult<'tcx> {
+        for (field_idx, field) in
+            place.layout().ty.ty_adt_def().unwrap().non_enum_variant().fields.iter_enumerated()
+        {
+            let field_place = self.project_field(&place, field_idx)?;
+
+            match field.name {
+                sym::path => {
+                    let path_str: String =
+                        path_segments.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("::");
+                    let path_place = self.allocate_str_dedup(&path_str)?;
+                    let ptr = self.mplace_to_imm_ptr(&path_place, None)?;
+                    self.write_immediate(*ptr, &field_place)?;
+                }
+                sym::args => {
+                    let args_place = self.allocate_str_dedup(args)?;
+                    let ptr = self.mplace_to_imm_ptr(&args_place, None)?;
+                    self.write_immediate(*ptr, &field_place)?;
+                }
+                other => span_bug!(self.tcx.def_span(field.did), "unimplemented field {other}"),
+            }
+        }
+        interp_ok(())
+    }
 }
