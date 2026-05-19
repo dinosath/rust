@@ -23,15 +23,12 @@ struct ToolAttr {
     x: u8,
 }
 
-// Exercise AttrArgs::Eq path with a custom tool attribute.
 #[my_tool::category = "test_value"]
 struct EqAttr {
     x: u8,
 }
 
 fn main() {
-    // Verify basic attribute reflection on a struct with mixed attributes.
-    // #[doc = "..."] is parsed by the compiler into DocComment, so only #[allow] is reflected.
     let Type { kind: TypeKind::Struct(ty), .. } = (const { Type::of::<AttrStruct>() }) else {
         panic!()
     };
@@ -41,7 +38,6 @@ fn main() {
     assert_eq!(ty.fields[0].attributes.len(), 1);
     assert_eq!(ty.fields[0].attributes[0].path, "allow");
 
-    // Verify namespaced (tool) attribute paths.
     let Type { kind: TypeKind::Struct(ty), .. } = (const { Type::of::<ToolAttr>() }) else {
         panic!()
     };
@@ -49,7 +45,6 @@ fn main() {
     assert_eq!(ty.attributes[0].path, "rustfmt::skip");
     assert_eq!(ty.attributes[0].args, "");
 
-    // Verify AttrArgs::Eq path with custom tool attribute.
     let Type { kind: TypeKind::Struct(ty), .. } = (const { Type::of::<EqAttr>() }) else {
         panic!()
     };
@@ -57,9 +52,6 @@ fn main() {
     assert_eq!(ty.attributes[0].path, "my_tool::category");
     assert_eq!(ty.attributes[0].args, "test_value");
 
-    // Verify cross-crate type, variant, and field attributes survive metadata encoding.
-    // Only encoded unparsed attrs should appear in `attributes`; parsed built-ins remain
-    // observable through dedicated structural fields instead.
     let Type { kind: TypeKind::Enum(ty), .. } =
         (const { Type::of::<attributes_aux::CrossCrateEnum>() })
     else {
@@ -98,6 +90,5 @@ fn main() {
     assert_eq!(ty.fields[0].attributes.len(), 1);
     assert_eq!(ty.fields[0].attributes[0].path, "my_tool::field_tag");
     assert_eq!(ty.fields[0].attributes[0].args, "public_field");
-    // Lint attrs are intentionally not encoded into downstream metadata.
     assert!(ty.fields[1].attributes.is_empty());
 }

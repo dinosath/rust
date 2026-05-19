@@ -483,7 +483,7 @@ fn test_attributes() {
         assert!(ty.fields[0].attributes.len() == 1);
         assert!(ty.fields[0].attributes[0].path == "allow");
         assert!(ty.fields[0].attributes[0].args == "dead_code");
-        
+
         assert!(ty.fields[1].attributes.len() == 0);
     }
 
@@ -559,6 +559,7 @@ fn test_attributes() {
 
         let Type { kind: Struct(ty), .. } = Type::of::<EmptyArgs>() else { panic!() };
         // #[non_exhaustive] is a parsed built-in attribute, not reflected here.
+        assert!(ty.non_exhaustive);
         assert!(ty.attributes.len() == 0);
     }
 
@@ -687,6 +688,7 @@ fn test_attributes() {
         }
 
         let Type { kind: Struct(ty), .. } = Type::of::<MixedAttrs>() else { panic!() };
+        assert!(ty.non_exhaustive);
         assert!(ty.attributes.len() == 2);
         assert!(ty.attributes[0].path == "allow");
         assert!(ty.attributes[0].args == "dead_code");
@@ -720,8 +722,8 @@ fn test_attributes() {
     const {
         let Type { kind: Enum(ty), .. } = Type::of::<Option<i32>>() else { panic!() };
         let _ = ty.attributes;
-        let _ = ty.variants[0].attributes; 
-        let _ = ty.variants[1].attributes; 
+        let _ = ty.variants[0].attributes;
+        let _ = ty.variants[1].attributes;
     }
 
     const {

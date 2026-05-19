@@ -9,8 +9,8 @@ use rustc_hir::attrs::HasAttrs;
 use rustc_middle::span_bug;
 use rustc_middle::ty::layout::TyAndLayout;
 use rustc_middle::ty::{self, Const, FnHeader, FnSigTys, ScalarInt, Ty, TyCtxt};
-use rustc_span::{Symbol, sym};
 use rustc_span::def_id::DefId;
+use rustc_span::{Symbol, sym};
 
 use crate::const_eval::CompileTimeMachine;
 use crate::interpret::{
@@ -478,9 +478,9 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
     /// Writes the `attributes` slice for a given `DefId` (or an empty slice if `None`) to the given place.
     ///
     /// Only reflects unparsed (custom/tool) attributes. Built-in attributes that the compiler
-    /// parses into `AttributeKind` variants (e.g., `#[repr]`, `#[non_exhaustive]`, `#[must_use]`)
-    /// are not included — their semantics are already captured structurally (e.g., via
-    /// `non_exhaustive: bool`, layout changes, etc.).
+    /// parses into internal representations (for example, `#[repr]` or `#[non_exhaustive]`)
+    /// are intentionally omitted from this MVP, even when some of their effects may be visible
+    /// elsewhere in the reflected type information.
     pub(crate) fn write_attributes_type_info(
         &mut self,
         place: impl Writeable<'tcx, CtfeProvenance>,
@@ -511,14 +511,10 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
             None => Vec::new(),
         };
 
-        self.allocate_fill_and_write_slice_ptr(
-            place,
-            attrs.len() as u64,
-            |this, i, place| {
-                let (path_segments, ref args) = attrs[i as usize];
-                this.write_attribute_type_info(place, path_segments, args)
-            },
-        )
+        self.allocate_fill_and_write_slice_ptr(place, attrs.len() as u64, |this, i, place| {
+            let (path_segments, ref args) = attrs[i as usize];
+            this.write_attribute_type_info(place, path_segments, args)
+        })
     }
 
     /// Writes a single `type_info::Attribute` to the given place.
@@ -537,11 +533,8 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
             match field.name {
                 // Write the attribute path (e.g., "allow" or "clippy::complexity").
                 sym::path => {
-                    let path_str: String = path_segments
-                        .iter()
-                        .map(|s| s.as_str())
-                        .collect::<Vec<_>>()
-                        .join("::");
+                    let path_str: String =
+                        path_segments.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("::");
                     let path_place = self.allocate_str_dedup(&path_str)?;
                     let ptr = self.mplace_to_imm_ptr(&path_place, None)?;
                     self.write_immediate(*ptr, &field_place)?;

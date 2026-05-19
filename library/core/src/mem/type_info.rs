@@ -273,9 +273,9 @@ pub struct Const {
 ///
 /// Only **unparsed** (custom / tool) attributes are reflected here.
 /// Built-in attributes that the compiler parses into internal representations
-/// (e.g., `#[repr]`, `#[non_exhaustive]`, `#[must_use]`, `#[deprecated]`)
-/// are **not** included — their semantics are already captured by other
-/// structural fields (e.g., [`Struct::non_exhaustive`]).
+/// (for example, `#[repr]` or `#[non_exhaustive]`) are **not** included in
+/// this MVP, even when some of their effects may be observable elsewhere in
+/// the reflected type information.
 ///
 /// Attributes are returned in source order.
 ///

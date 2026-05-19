@@ -139,9 +139,9 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
                         enum_def.variants().len() as u64,
                         |this, i, place| {
                             let variant_idx = VariantIdx::from_usize(i as usize);
-                            let variant_def = &enum_def.variants()[variant_idx];
+                            let variant_def = enum_def.variant(variant_idx);
                             let variant_layout = enum_layout.for_variant(this, variant_idx);
-                            this.write_enum_variant(place, (variant_layout, &variant_def), generics)
+                            this.write_enum_variant(place, (variant_layout, variant_def), generics)
                         },
                     )?;
                 }
