@@ -2447,6 +2447,8 @@ options! {
         "emit mono items in the order of spans in source files (default: no)"),
     contract_checks: Option<bool> = (None, parse_opt_bool, [TRACKED],
         "emit runtime checks for contract pre- and post-conditions (default: no)"),
+    comptime_items_emit: Option<String> = (None, parse_opt_string, [UNTRACKED],
+        "internal: evaluate `ItemSet` generators, write the result to the given path, and exit"),
     coverage_options: CoverageOptions = (CoverageOptions::default(), parse_coverage_options, [TRACKED],
         "control details of coverage instrumentation"),
     crate_attr: Vec<String> = (Vec::new(), parse_string_push, [TRACKED],

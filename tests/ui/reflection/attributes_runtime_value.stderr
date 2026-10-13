@@ -1,0 +1,8 @@
+error: comptime fns can only be called at compile time
+  --> $DIR/attributes_runtime_value.rs:11:17
+   |
+LL |     let label = TypeId::of::<SampleType>().attr_value("meta::record", "label");
+   |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: aborting due to 1 previous error
+

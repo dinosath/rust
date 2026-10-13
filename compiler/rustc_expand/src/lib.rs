@@ -11,6 +11,7 @@
 // tidy-alphabetical-end
 
 mod build;
+pub mod comptime_codegen;
 mod diagnostics;
 mod mbe;
 mod placeholders;

@@ -885,6 +885,63 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
                 ecx.write_type_id(field_ty, dest)?;
             }
 
+            sym::type_id_has_attr => {
+                let ty = ecx.read_type_id(&args[0])?;
+                let attr = ecx.read_static_str(&args[1])?;
+                let def_id = match ty.kind() {
+                    ty::Adt(def, _) => Some(def.did()),
+                    ty::FnDef(def_id, _) => Some(*def_id),
+                    _ => None,
+                };
+                let has = def_id.is_some_and(|def_id| ecx.def_has_attr(def_id, &attr));
+                ecx.write_scalar(Scalar::from_bool(has), dest)?;
+            }
+
+            sym::type_id_attr_value => {
+                let ty = ecx.read_type_id(&args[0])?;
+                let attr = ecx.read_static_str(&args[1])?;
+                let key = ecx.read_static_str(&args[2])?;
+                let def_id = match ty.kind() {
+                    ty::Adt(def, _) => Some(def.did()),
+                    ty::FnDef(def_id, _) => Some(*def_id),
+                    _ => None,
+                };
+                let value = def_id.and_then(|def_id| ecx.def_attr_value(def_id, &attr, &key));
+                ecx.write_opt_str(dest, value)?;
+            }
+
+            sym::field_representing_type_has_attr => {
+                let frt_ty = ecx.read_type_id(&args[0])?;
+                let attr = ecx.read_static_str(&args[1])?;
+                let field_did = ecx.frt_field_def_id(frt_ty);
+                let has = ecx.def_has_attr(field_did, &attr);
+                ecx.write_scalar(Scalar::from_bool(has), dest)?;
+            }
+
+            sym::field_representing_type_attr_value => {
+                let frt_ty = ecx.read_type_id(&args[0])?;
+                let attr = ecx.read_static_str(&args[1])?;
+                let key = ecx.read_static_str(&args[2])?;
+                let field_did = ecx.frt_field_def_id(frt_ty);
+                let value = ecx.def_attr_value(field_did, &attr, &key);
+                ecx.write_opt_str(dest, value)?;
+            }
+
+            sym::crate_types_with_attr => {
+                let attr = ecx.read_static_str(&args[0])?;
+                ecx.write_crate_types_with_attr(dest, &attr)?;
+            }
+
+            sym::crate_functions_with_attr => {
+                let attr = ecx.read_static_str(&args[0])?;
+                ecx.write_crate_functions_with_attr(dest, &attr)?;
+            }
+
+            sym::all_functions_with_attr => {
+                let attr = ecx.read_static_str(&args[0])?;
+                ecx.write_all_functions_with_attr(dest, &attr)?;
+            }
+
             sym::type_id_generics => {
                 let ty = ecx.read_type_id(&args[0])?;
                 ecx.write_type_id_generics(dest, ty)?;

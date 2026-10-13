@@ -97,6 +97,9 @@ fn intrinsic_operation_unsafety(tcx: TyCtxt<'_>, intrinsic_id: LocalDefId) -> hi
         | sym::copysignf64
         | sym::copysignf128
         | sym::cos
+        | sym::crate_types_with_attr
+        | sym::crate_functions_with_attr
+        | sym::all_functions_with_attr
         | sym::ctlz
         | sym::ctpop
         | sym::cttz
@@ -108,6 +111,8 @@ fn intrinsic_operation_unsafety(tcx: TyCtxt<'_>, intrinsic_id: LocalDefId) -> hi
         | sym::fdiv_algebraic
         | sym::field_offset
         | sym::field_representing_type_actual_type_id
+        | sym::field_representing_type_attr_value
+        | sym::field_representing_type_has_attr
         | sym::field_representing_type_name
         | sym::field_representing_type_offset
         | sym::floorf16
@@ -200,12 +205,14 @@ fn intrinsic_operation_unsafety(tcx: TyCtxt<'_>, intrinsic_id: LocalDefId) -> hi
         | sym::truncf128
         | sym::type_id
         | sym::type_id_array_len
+        | sym::type_id_attr_value
         | sym::type_id_element_ty
         | sym::type_id_eq
         | sym::type_id_field_representing_type
         | sym::type_id_fields
         | sym::type_id_function_ptr
         | sym::type_id_generics
+        | sym::type_id_has_attr
         | sym::type_id_is_signed
         | sym::type_id_non_exhaustive
         | sym::type_id_points_mutably
@@ -369,6 +376,42 @@ pub(crate) fn check_intrinsic_type(
         ),
         sym::field_representing_type_actual_type_id => (0, 0, vec![type_id_ty()], type_id_ty()),
         sym::field_representing_type_name => (0, 0, vec![type_id_ty()], Ty::new_static_str(tcx)),
+        sym::type_id_has_attr => {
+            (0, 0, vec![type_id_ty(), Ty::new_static_str(tcx)], tcx.types.bool)
+        }
+        sym::field_representing_type_has_attr => {
+            (0, 0, vec![type_id_ty(), Ty::new_static_str(tcx)], tcx.types.bool)
+        }
+        sym::type_id_attr_value => (
+            0,
+            0,
+            vec![type_id_ty(), Ty::new_static_str(tcx), Ty::new_static_str(tcx)],
+            Ty::new_option(tcx, Ty::new_static_str(tcx)),
+        ),
+        sym::field_representing_type_attr_value => (
+            0,
+            0,
+            vec![type_id_ty(), Ty::new_static_str(tcx), Ty::new_static_str(tcx)],
+            Ty::new_option(tcx, Ty::new_static_str(tcx)),
+        ),
+        sym::crate_types_with_attr => (
+            0,
+            0,
+            vec![Ty::new_static_str(tcx)],
+            Ty::new_imm_ref(tcx, tcx.lifetimes.re_static, Ty::new_slice(tcx, type_id_ty())),
+        ),
+        sym::crate_functions_with_attr => (
+            0,
+            0,
+            vec![Ty::new_static_str(tcx)],
+            Ty::new_imm_ref(tcx, tcx.lifetimes.re_static, Ty::new_slice(tcx, type_id_ty())),
+        ),
+        sym::all_functions_with_attr => (
+            0,
+            0,
+            vec![Ty::new_static_str(tcx)],
+            Ty::new_imm_ref(tcx, tcx.lifetimes.re_static, Ty::new_slice(tcx, type_id_ty())),
+        ),
         sym::field_representing_type_offset => (0, 0, vec![type_id_ty()], tcx.types.usize),
         sym::type_id_non_exhaustive => (0, 0, vec![type_id_ty()], tcx.types.bool),
         sym::type_id_generics => (

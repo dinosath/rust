@@ -192,3 +192,67 @@ pub fn type_id_points_mutably(_id: crate::any::TypeId) -> bool;
 #[unstable(feature = "core_intrinsics", issue = "none")]
 #[rustc_comptime]
 pub fn type_id_function_ptr(_type_id: crate::any::TypeId) -> Option<crate::mem::type_info::FnPtr>;
+
+/// Returns whether the ADT `id` carries the tool attribute `attr` (e.g. `"app::singleton"`).
+///
+/// The more user-friendly version of this intrinsic is [`core::any::TypeId::has_attr`].
+#[rustc_intrinsic]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+#[rustc_comptime]
+pub fn type_id_has_attr(_id: crate::any::TypeId, _attr: &'static str) -> bool;
+
+/// Returns the value of `key` in `#[attr(key = lit)]` on the ADT `id`, or of `#[attr = lit]` when
+/// `key` is empty. String literals are unescaped, other literals are returned as written.
+///
+/// The more user-friendly version of this intrinsic is [`core::any::TypeId::attr_value`].
+#[rustc_intrinsic]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+#[rustc_comptime]
+pub fn type_id_attr_value(
+    _id: crate::any::TypeId,
+    _attr: &'static str,
+    _key: &'static str,
+) -> Option<&'static str>;
+
+/// Like [`type_id_has_attr`], for the field represented by a `FieldRepresentingType` `TypeId`.
+#[rustc_intrinsic]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+#[rustc_comptime]
+pub fn field_representing_type_has_attr(
+    _frt_type_id: crate::any::TypeId,
+    _attr: &'static str,
+) -> bool;
+
+/// Like [`type_id_attr_value`], for the field represented by a `FieldRepresentingType` `TypeId`.
+#[rustc_intrinsic]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+#[rustc_comptime]
+pub fn field_representing_type_attr_value(
+    _frt_type_id: crate::any::TypeId,
+    _attr: &'static str,
+    _key: &'static str,
+) -> Option<&'static str>;
+
+/// Returns the non-generic ADTs of the local crate carrying the tool attribute `attr`, in
+/// definition order.
+///
+/// The more user-friendly version of this intrinsic is [`core::mem::type_info::crate_types_with_attr`].
+#[rustc_intrinsic]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+#[rustc_comptime]
+pub fn crate_types_with_attr(_attr: &'static str) -> &'static [crate::any::TypeId];
+
+/// Returns the non-generic functions of the local crate carrying the tool attribute `attr`, in
+/// definition order.
+#[rustc_intrinsic]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+#[rustc_comptime]
+pub fn crate_functions_with_attr(_attr: &'static str) -> &'static [crate::any::TypeId];
+
+/// Returns the non-generic functions carrying `attr` in the current crate and loaded dependencies.
+/// Results are ordered with local definitions first, followed by external crates and definitions
+/// in compiler metadata order.
+#[rustc_intrinsic]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+#[rustc_comptime]
+pub fn all_functions_with_attr(_attr: &'static str) -> &'static [crate::any::TypeId];

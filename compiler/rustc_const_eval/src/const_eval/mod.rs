@@ -9,6 +9,7 @@ use tracing::instrument;
 
 use crate::interpret::InterpCx;
 
+mod comptime_items;
 mod dummy_machine;
 mod dyn_trait;
 mod error;
@@ -18,6 +19,7 @@ mod machine;
 mod type_info;
 mod valtrees;
 
+pub use self::comptime_items::*;
 pub use self::dummy_machine::*;
 pub use self::error::*;
 pub use self::eval_queries::*;

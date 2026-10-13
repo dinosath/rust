@@ -104,10 +104,277 @@ pub enum TypeKind {
     Pointer,
     /// Function pointers.
     FnPtr,
+    /// Function items.
+    FnDef(FnDef),
     /// FIXME(#146922): add all the common types
     /// non exhaustive list:
     /// - Never
     Other,
+}
+
+/// Compile-time information about a function item.
+#[derive(Debug)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub struct FnDef {
+    /// The function's source name.
+    pub name: &'static str,
+    /// The source file and byte range of the function declaration.
+    pub span: SourceSpan,
+    /// The function's parameter types.
+    pub inputs: &'static [TypeId],
+    /// Names of simple identifier parameters. Destructuring patterns and unavailable metadata are
+    /// represented as `None`.
+    pub param_names: &'static [Option<&'static str>],
+    /// The function signature's output type. For an async function, this is its future type.
+    pub output: TypeId,
+    /// The declared output when available: `Future::Output` for async functions, otherwise the signature output.
+    pub declared_output: Option<TypeId>,
+    /// Whether the function is async.
+    pub is_async: bool,
+}
+
+/// A source location exposed by compile-time reflection.
+#[derive(Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub struct SourceSpan {
+    /// The source file name as known to the compiler.
+    pub file: &'static str,
+    /// The zero-based byte offset from the beginning of `file`.
+    pub start: u32,
+    /// The zero-based byte offset just past the end of the span.
+    pub end: u32,
+}
+
+/// A collection of typed item requests produced by compile-time code.
+///
+/// This descriptor format is compile-time input to compiler item generation;
+/// it is not a runtime registration mechanism.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+#[rustc_diagnostic_item = "comptime_item_set"]
+pub struct ItemSet {
+    /// Items in deterministic caller-provided order.
+    pub items: &'static [Item],
+}
+
+impl ItemSet {
+    /// Creates an item set from a fixed descriptor slice.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn new(items: &'static [Item]) -> Self {
+        Self { items }
+    }
+}
+
+/// A typed function or static request.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub struct Item {
+    /// Module path relative to the compile-time generator's containing module.
+    pub module: &'static [&'static str],
+    /// Requested Rust visibility.
+    pub visibility: ItemVisibility,
+    /// Requested item kind and contents.
+    pub kind: ItemKind,
+}
+
+impl Item {
+    /// Creates an item request in the specified module and with the requested visibility.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn new(
+        module: &'static [&'static str],
+        visibility: ItemVisibility,
+        kind: ItemKind,
+    ) -> Self {
+        Self { module, visibility, kind }
+    }
+}
+
+/// Visibility requested for a generated item.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub enum ItemVisibility {
+    /// Visible only in the containing module.
+    Private,
+    /// Visible throughout the crate.
+    Crate,
+    /// Public visibility, subject to ordinary Rust privacy rules.
+    Public,
+}
+
+/// Kind of generated item.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub enum ItemKind {
+    /// A generated free function.
+    Function(Function),
+    /// A generated static item.
+    Static(Static),
+}
+
+/// A function request with a typed signature and structured body.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub struct Function {
+    /// Caller-selected Rust identifier.
+    pub name: &'static str,
+    /// Function parameters in declaration order.
+    pub parameters: &'static [Parameter],
+    /// Declared output type.
+    pub output: TypeId,
+    /// Whether the generated function is async.
+    pub is_async: bool,
+    /// Expression returned by the generated function.
+    pub body: Expression,
+}
+
+impl Function {
+    /// Creates a function request with a typed signature and expression body.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn new(
+        name: &'static str,
+        parameters: &'static [Parameter],
+        output: TypeId,
+        is_async: bool,
+        body: Expression,
+    ) -> Self {
+        Self { name, parameters, output, is_async, body }
+    }
+}
+
+/// A generated function parameter.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub struct Parameter {
+    /// Caller-selected parameter identifier.
+    pub name: &'static str,
+    /// Semantic parameter type.
+    pub ty: TypeId,
+}
+
+impl Parameter {
+    /// Creates a named typed function parameter.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn new(name: &'static str, ty: TypeId) -> Self {
+        Self { name, ty }
+    }
+}
+
+/// A static item request.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub struct Static {
+    /// Caller-selected Rust identifier.
+    pub name: &'static str,
+    /// Semantic static type.
+    pub ty: TypeId,
+    /// Static initializer expression.
+    pub initializer: Expression,
+    /// Whether the generated static is mutable.
+    pub is_mutable: bool,
+}
+
+impl Static {
+    /// Creates a static request with a typed initializer.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn new(
+        name: &'static str,
+        ty: TypeId,
+        initializer: Expression,
+        is_mutable: bool,
+    ) -> Self {
+        Self { name, ty, initializer, is_mutable }
+    }
+}
+
+/// A structured expression in a generated function body or static initializer.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub enum Expression {
+    /// Reference a generated function parameter by zero-based index.
+    Parameter(u16),
+    /// A typed integer literal, represented by its target type and bits.
+    Integer {
+        /// Semantic integer type.
+        ty: TypeId,
+        /// Raw target-independent integer bits, interpreted according to `ty`.
+        bits: u128,
+    },
+    /// A boolean literal.
+    Bool(bool),
+    /// Call an existing function item identified by its semantic function-item type.
+    Call {
+        /// Function-item `TypeId` of the callee.
+        function: TypeId,
+        /// Arguments in call order.
+        arguments: &'static [Expression],
+    },
+    /// Construct a tuple or struct with fields in declaration order.
+    Construct {
+        /// Tuple or struct type to construct.
+        ty: TypeId,
+        /// Field values in declaration order.
+        fields: &'static [Expression],
+    },
+    /// Read a field by zero-based declaration index.
+    Field {
+        /// The expression producing the base value.
+        base: &'static Expression,
+        /// Semantic type of the base expression (a tuple or struct).
+        ty: TypeId,
+        /// Zero-based field index.
+        index: u16,
+    },
+    /// A binary operation on two expressions.
+    Binary {
+        /// Operation applied to the operands.
+        op: BinaryOp,
+        /// Left-hand operand.
+        lhs: &'static Expression,
+        /// Right-hand operand.
+        rhs: &'static Expression,
+    },
+    /// Await an expression in an async generated function.
+    Await(&'static Expression),
+}
+
+/// Binary operations supported by generated expressions.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+#[unstable(feature = "type_info", issue = "146922")]
+pub enum BinaryOp {
+    /// Integer addition.
+    Add,
+    /// Integer subtraction.
+    Subtract,
+    /// Integer multiplication.
+    Multiply,
+    /// Integer division.
+    Divide,
+    /// Integer remainder.
+    Remainder,
+    /// Equality comparison.
+    Equal,
+    /// Inequality comparison.
+    NotEqual,
+    /// Boolean conjunction.
+    And,
+    /// Boolean disjunction.
+    Or,
 }
 
 /// Compile-time type information about dynamic traits.
@@ -568,6 +835,49 @@ impl TypeId {
         intrinsics::reflection::type_id_non_exhaustive(self)
     }
 
+    /// Returns whether this ADT carries the tool attribute `attr`, given as a `::`-separated path.
+    /// Only tool attributes (see `#![register_tool]`) are visible. Returns `false` for non-ADTs.
+    ///
+    /// ```
+    /// #![feature(type_info, register_tool)]
+    /// #![register_tool(app)]
+    /// use std::any::TypeId;
+    ///
+    /// #[app::singleton]
+    /// struct Service;
+    /// struct Plain;
+    /// assert!(const { TypeId::of::<Service>().has_attr("app::singleton") });
+    /// assert!(!const { TypeId::of::<Plain>().has_attr("app::singleton") });
+    /// ```
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn has_attr(self, attr: &'static str) -> bool {
+        intrinsics::reflection::type_id_has_attr(self, attr)
+    }
+
+    /// Returns the literal of `key` in `#[attr(key = lit)]` on this ADT, or of `#[attr = lit]` if
+    /// `key` is empty. String literals are unescaped, other literals are returned as written.
+    ///
+    /// ```
+    /// #![feature(type_info, register_tool)]
+    /// #![register_tool(app)]
+    /// use std::any::TypeId;
+    ///
+    /// #[app::config(prefix = "database")]
+    /// struct Config;
+    /// assert_eq!(
+    ///     const { TypeId::of::<Config>().attr_value("app::config", "prefix") },
+    ///     Some("database"),
+    /// );
+    /// ```
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn attr_value(self, attr: &'static str, key: &'static str) -> Option<&'static str> {
+        intrinsics::reflection::type_id_attr_value(self, attr, key)
+    }
+
     /// Returns a list of generic parameters of the type.
     /// Returns an empty slice for everything that doesn't have generics.
     #[unstable(feature = "type_info", issue = "146922")]
@@ -788,4 +1098,64 @@ impl FieldId {
     pub fn offset(self) -> usize {
         intrinsics::field_representing_type_offset(self.frt_type_id)
     }
+
+    /// Returns whether the field carries the tool attribute `attr`.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn has_attr(self, attr: &'static str) -> bool {
+        intrinsics::reflection::field_representing_type_has_attr(self.frt_type_id, attr)
+    }
+
+    /// Returns the literal of `key` in `#[attr(key = lit)]` on the field, or of `#[attr = lit]` if
+    /// `key` is empty.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn attr_value(self, attr: &'static str, key: &'static str) -> Option<&'static str> {
+        intrinsics::reflection::field_representing_type_attr_value(self.frt_type_id, attr, key)
+    }
+}
+
+/// Returns the non-generic structs, enums and unions of the crate being compiled that carry the
+/// tool attribute `attr`, in definition order.
+///
+/// ```
+/// #![feature(type_info, register_tool)]
+/// #![register_tool(app)]
+/// use std::any::TypeId;
+/// use std::mem::type_info::crate_types_with_attr;
+///
+/// #[app::singleton]
+/// struct A;
+/// struct B;
+/// #[app::singleton]
+/// enum C {}
+/// const SINGLETONS: &[TypeId] = crate_types_with_attr("app::singleton");
+/// assert_eq!(SINGLETONS, &[TypeId::of::<A>(), TypeId::of::<C>()]);
+/// ```
+#[unstable(feature = "type_info", issue = "146922")]
+#[rustc_const_unstable(feature = "type_info", issue = "146922")]
+#[rustc_comptime]
+pub fn crate_types_with_attr(attr: &'static str) -> &'static [TypeId] {
+    intrinsics::reflection::crate_types_with_attr(attr)
+}
+
+/// Returns the non-generic functions of the crate being compiled that carry the tool attribute
+/// `attr`, in definition order.
+#[unstable(feature = "type_info", issue = "146922")]
+#[rustc_const_unstable(feature = "type_info", issue = "146922")]
+#[rustc_comptime]
+pub fn crate_functions_with_attr(attr: &'static str) -> &'static [TypeId] {
+    intrinsics::reflection::crate_functions_with_attr(attr)
+}
+
+/// Returns the non-generic functions of the current crate and its loaded dependencies that carry
+/// the tool attribute `attr`. Local functions are listed first, followed by external crates in
+/// compiler metadata order; definitions within each crate follow metadata order.
+#[unstable(feature = "type_info", issue = "146922")]
+#[rustc_const_unstable(feature = "type_info", issue = "146922")]
+#[rustc_comptime]
+pub fn all_functions_with_attr(attr: &'static str) -> &'static [TypeId] {
+    intrinsics::reflection::all_functions_with_attr(attr)
 }

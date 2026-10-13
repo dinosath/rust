@@ -1,0 +1,9 @@
+error[E0080]: evaluation panicked: unexpected recorded field type
+  --> $DIR/attributes_invalid_lifetime.rs:25:13
+   |
+LL |             assert!(!dep.has_attr("meta::record"), "unexpected recorded field type");
+   |             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ evaluation of `_` failed here
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0080`.
