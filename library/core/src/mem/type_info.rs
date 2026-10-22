@@ -568,11 +568,12 @@ impl TypeId {
         intrinsics::reflection::type_id_non_exhaustive(self)
     }
 
-    /// Returns whether this type carries the unparsed attribute `attr`.
+    /// Returns `true` if the type represented this `TypeId` has an unparsed attribute with name `attr_name`.
     ///
-    /// This includes custom tool attributes and derive-helper attributes. Parsed built-in
-    /// attributes, such as `#[repr]`, are not considered. An empty `attr` matches no attribute.
-    /// Returns `false` for types other than ADTs and function items.
+    /// This includes custom tool attributes and derive helper attributes. Parsed built-in
+    /// attributes, such as `#[repr]`, are not reported.
+    /// Returns `false` if `attr_name` is empty or in case `TypeId` represents a type other
+    /// than an ADT or function item.
     ///
     /// # Examples
     ///
@@ -591,8 +592,8 @@ impl TypeId {
     #[unstable(feature = "type_info", issue = "146922")]
     #[rustc_const_unstable(feature = "type_info", issue = "146922")]
     #[rustc_comptime]
-    pub fn has_attr(self, attr: &'static str) -> bool {
-        intrinsics::reflection::type_id_has_attr(self, attr)
+    pub fn has_attr(self, attr_name: &'static str) -> bool {
+        intrinsics::reflection::type_id_has_attr(self, attr_name)
     }
 
     /// Returns a list of generic parameters of the type.
