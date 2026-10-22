@@ -100,6 +100,7 @@
 #![feature(portable_simd)]
 #![feature(ptr_metadata)]
 #![feature(raw_os_error_ty)]
+#![feature(register_tool)]
 #![feature(rustc_attrs)]
 #![feature(signed_bigint_helpers)]
 #![feature(slice_from_ptr_range)]
@@ -129,6 +130,7 @@
 #![feature(unicode_internals)]
 #![feature(unsize)]
 // tidy-alphabetical-end
+#![register_tool(meta)]
 #![allow(incomplete_features)]
 #![allow(internal_features)]
 #![deny(implicit_provenance_casts)]

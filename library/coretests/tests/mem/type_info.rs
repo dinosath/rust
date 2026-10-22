@@ -4,6 +4,55 @@ use std::any::{Any, TypeId};
 use std::mem::offset_of;
 use std::mem::type_info::{Const, Generic, GenericType, Type, TypeKind};
 
+#[allow(deprecated)]
+#[test]
+fn test_attribute_values() {
+    #[meta::record(group = "settings", label = "primary")]
+    struct SampleType;
+
+    #[meta::format = "toml"]
+    struct FormatSampleType;
+
+    #[meta::record(label = "line\nbreak", version = 1_000)]
+    struct LiteralSampleType;
+
+    #[meta::duplicate(label = "first")]
+    #[meta::duplicate(label = "second")]
+    struct DuplicateSampleType;
+
+    #[deprecated(note = "parsed attribute")]
+    struct ParsedAttributeSampleType;
+
+    struct UntaggedSampleType;
+
+    #[meta::record(label = "function")]
+    fn attribute_function() {}
+
+    const fn type_id_of_value<T: 'static>(_: &T) -> TypeId {
+        TypeId::of::<T>()
+    }
+
+    const {
+        let sample = TypeId::of::<SampleType>();
+        assert!(sample.attr_value("meta::record", "group") == Some("settings"));
+        assert!(sample.attr_value("meta::record", "label") == Some("primary"));
+        assert!(TypeId::of::<FormatSampleType>().attr_value("meta::format", "") == Some("toml"));
+        assert!(TypeId::of::<LiteralSampleType>().attr_value("meta::record", "label")
+            == Some("line\nbreak"));
+        assert!(TypeId::of::<LiteralSampleType>().attr_value("meta::record", "version")
+            == Some("1_000"));
+        assert!(TypeId::of::<DuplicateSampleType>().attr_value("meta::duplicate", "label")
+            == Some("first"));
+        assert!(TypeId::of::<ParsedAttributeSampleType>().attr_value("deprecated", "note") == None);
+        assert!(type_id_of_value(&attribute_function).attr_value("meta::record", "label")
+            == Some("function"));
+        assert!(sample.attr_value("meta::record", "missing") == None);
+        assert!(sample.attr_value("meta::missing", "key") == None);
+        assert!(TypeId::of::<UntaggedSampleType>().attr_value("meta::record", "group") == None);
+        assert!(TypeId::of::<u8>().attr_value("meta::record", "group") == None);
+    }
+}
+
 #[test]
 fn test_arrays() {
     // Normal array.

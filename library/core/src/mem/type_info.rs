@@ -568,6 +568,33 @@ impl TypeId {
         intrinsics::reflection::type_id_non_exhaustive(self)
     }
 
+    /// Returns the literal value associated with `key` in the attribute `attr` on this type.
+    ///
+    /// For an attribute of the form `#[attr = "value"]`, pass an empty `key` to retrieve
+    /// `"value"`. For an attribute of the form `#[attr(key = "value")]`, pass `"key"`.
+    /// This inspects unparsed attributes, such as custom tool attributes. Built-in attributes
+    /// parsed by the compiler are not exposed and return `None`. The method also returns `None`
+    /// if the attribute or key is not present, or if it has no literal value.
+    ///
+    /// ```
+    /// #![feature(type_info, register_tool)]
+    /// #![register_tool(meta)]
+    /// use core::any::TypeId;
+    ///
+    /// #[meta::record(label = "example")]
+    /// struct SampleType;
+    ///
+    /// const {
+    ///     assert!(TypeId::of::<SampleType>().attr_value("meta::record", "label") == Some("example"));
+    /// }
+    /// ```
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn attr_value(self, attr: &'static str, key: &'static str) -> Option<&'static str> {
+        intrinsics::reflection::type_id_attr_value(self, attr, key)
+    }
+
     /// Returns a list of generic parameters of the type.
     /// Returns an empty slice for everything that doesn't have generics.
     #[unstable(feature = "type_info", issue = "146922")]

@@ -4,6 +4,7 @@ use std::borrow::Cow;
 
 use rustc_abi::{ExternAbi, FieldIdx};
 use rustc_attr_ir::lang_items::LangItem;
+use rustc_hir::def_id::DefId;
 use rustc_middle::ty::layout::TyAndLayout;
 use rustc_middle::ty::{self, FnHeader, FnSigKind, FnSigTys, ScalarInt, Ty, TyCtxt};
 use rustc_span::{Symbol, span_bug, sym};
@@ -15,6 +16,32 @@ use crate::interpret::{
 };
 
 impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
+    fn attr_path(path: &str) -> Vec<Symbol> {
+        path.split("::").map(Symbol::intern).collect()
+    }
+
+    /// `key == ""` selects the `#[path = lit]` form, otherwise `#[path(key = lit, ..)]`.
+    pub(crate) fn def_attr_value(&self, def_id: DefId, path: &str, key: &str) -> Option<Symbol> {
+        let text = |lit: &rustc_ast::MetaItemLit| lit.kind.str().unwrap_or(lit.symbol);
+        for attr in self.tcx.get_attrs_by_path(def_id, &Self::attr_path(path)) {
+            if key.is_empty() {
+                if let Some(lit) = attr.value_lit() {
+                    return Some(text(lit));
+                }
+                continue;
+            }
+            for item in attr.meta_item_list().into_iter().flatten() {
+                if let Some(mi) = item.meta_item()
+                    && mi.ident().is_some_and(|ident| ident.as_str() == key)
+                    && let Some(lit) = mi.name_value_literal()
+                {
+                    return Some(text(lit));
+                }
+            }
+        }
+        None
+    }
+
     // A general method to write an array to a static slice place.
     fn allocate_fill_and_write_slice_ptr(
         &mut self,
