@@ -29,6 +29,18 @@ pub fn type_id<T: ?Sized>() -> crate::any::TypeId;
 #[rustc_comptime]
 pub fn type_id_type_of(_id: crate::any::TypeId) -> crate::mem::type_info::Type;
 
+/// Returns the function items in the crate currently being compiled.
+#[rustc_intrinsic]
+#[rustc_comptime]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+pub fn type_id_local_functions() -> &'static [crate::any::TypeId];
+
+/// Returns the module paths in the crate currently being compiled.
+#[rustc_intrinsic]
+#[rustc_comptime]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+pub fn type_id_local_modules() -> &'static [&'static str];
+
 /// Tests (at compile-time) if two [`crate::any::TypeId`] instances identify the
 /// same type. This is necessary because at const-eval time the actual discriminating
 /// data is opaque and cannot be inspected directly.

@@ -208,6 +208,8 @@ fn intrinsic_operation_unsafety(tcx: TyCtxt<'_>, intrinsic_id: LocalDefId) -> hi
         | sym::type_id_generics
         | sym::type_id_has_attr
         | sym::type_id_is_signed
+        | sym::type_id_local_functions
+        | sym::type_id_local_modules
         | sym::type_id_non_exhaustive
         | sym::type_id_points_mutably
         | sym::type_id_points_to
@@ -321,6 +323,26 @@ pub(crate) fn check_intrinsic_type(
 
         sym::type_name => (1, 0, vec![], Ty::new_static_str(tcx)),
         sym::type_id => (1, 0, vec![], type_id_ty()),
+        sym::type_id_local_functions => (
+            0,
+            0,
+            vec![],
+            Ty::new_imm_ref(
+                tcx,
+                tcx.lifetimes.re_static,
+                Ty::new_slice(tcx, type_id_ty()),
+            ),
+        ),
+        sym::type_id_local_modules => (
+            0,
+            0,
+            vec![],
+            Ty::new_imm_ref(
+                tcx,
+                tcx.lifetimes.re_static,
+                Ty::new_slice(tcx, Ty::new_static_str(tcx)),
+            ),
+        ),
         sym::type_id_array_len => (0, 0, vec![type_id_ty()], tcx.types.usize),
         sym::type_id_element_ty => (0, 0, vec![type_id_ty()], Ty::new_option(tcx, type_id_ty())),
         sym::type_id_eq => (0, 0, vec![type_id_ty(), type_id_ty()], tcx.types.bool),

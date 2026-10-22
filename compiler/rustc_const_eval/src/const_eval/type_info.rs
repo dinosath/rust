@@ -16,7 +16,7 @@ use crate::interpret::{
 
 impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
     // A general method to write an array to a static slice place.
-    fn allocate_fill_and_write_slice_ptr(
+    pub(crate) fn allocate_fill_and_write_slice_ptr(
         &mut self,
         slice_place: &impl Writeable<'tcx, CtfeProvenance>,
         len: u64,
@@ -314,11 +314,14 @@ impl<'tcx> InterpCx<'tcx, CompileTimeMachine<'tcx>> {
                     self.allocate_fill_and_write_slice_ptr(
                         &field_place,
                         inputs.len() as _,
-                        |this, i, place| this.write_type_id(inputs[i as usize], &place),
+                        |this, i, place| {
+                            let input = this.tcx.erase_and_anonymize_regions(inputs[i as usize]);
+                            this.write_type_id(input, &place)
+                        },
                     )?;
                 }
                 sym::output => {
-                    let output = sig.output();
+                    let output = self.tcx.erase_and_anonymize_regions(sig.output());
                     self.write_type_id(output, &field_place)?;
                 }
                 sym::variadic => {

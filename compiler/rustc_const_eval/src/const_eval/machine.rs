@@ -7,6 +7,7 @@ use rustc_ast::Mutability;
 use rustc_attr_ir::find_attr;
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap, IndexEntry};
+use rustc_hir::def::DefKind;
 use rustc_hir::def_id::{DefId, LocalDefId};
 use rustc_hir::{CRATE_HIR_ID, HirId};
 use rustc_lint_defs::builtin::LONG_RUNNING_CONST_EVAL;
@@ -619,6 +620,50 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
                 ecx.write_type_info(ty, dest)?;
             }
 
+            sym::type_id_local_functions => {
+                let tcx = *ecx.tcx;
+                let functions = tcx
+                    .hir_crate_items(())
+                    .definitions()
+                    .filter(|def_id| {
+                        matches!(tcx.def_kind(*def_id), DefKind::Fn | DefKind::AssocFn)
+                    })
+                    .map(|def_id| def_id.to_def_id())
+                    .collect::<Vec<_>>();
+
+                ecx.allocate_fill_and_write_slice_ptr(
+                    dest,
+                    functions.len() as u64,
+                    |this, i, place| {
+                        let def_id = functions[i as usize];
+                        let fn_ty = tcx.type_of(def_id).instantiate_identity().skip_norm_wip();
+                        let fn_ty = tcx.erase_and_anonymize_regions(fn_ty);
+                        this.write_type_id(fn_ty, &place)
+                    },
+                )?;
+            }
+
+            sym::type_id_local_modules => {
+                let tcx = *ecx.tcx;
+                let modules = tcx
+                    .hir_crate_items(())
+                    .definitions()
+                    .filter(|def_id| tcx.def_kind(*def_id) == DefKind::Mod)
+                    .map(|def_id| tcx.def_path_str(def_id.to_def_id()))
+                    .collect::<Vec<_>>();
+
+                ecx.allocate_fill_and_write_slice_ptr(
+                    dest,
+                    modules.len() as u64,
+                    |this, i, place| {
+                        let path = modules[i as usize].as_str();
+                        let str_place = this.allocate_str_dedup(path)?;
+                        let str_ptr = this.mplace_to_imm_ptr(&str_place, None)?;
+                        this.write_immediate(*str_ptr, &place)
+                    },
+                )?;
+            }
+
             sym::type_id_is_signed => {
                 let ty = ecx.read_type_id(&args[0])?;
                 ecx.write_scalar(Scalar::from_bool(ty.is_signed()), dest)?;
@@ -738,11 +783,18 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
             }
             sym::type_id_function_ptr => {
                 let ty = ecx.read_type_id(&args[0])?;
-                let variant_index = if let ty::FnPtr(sig, fn_header) = ty.kind() {
+                let fn_sig = match ty.kind() {
+                    ty::FnPtr(sig, fn_header) => Some((sig.skip_binder(), *fn_header)),
+                    ty::FnDef(..) => {
+                        let (sig, fn_header) = ty.fn_sig(*ecx.tcx).split();
+                        Some((sig.skip_binder(), fn_header))
+                    }
+                    _ => None,
+                };
+                let variant_index = if let Some((sig, fn_header)) = fn_sig {
                     let (variant, variant_place) = ecx.project_downcast_named(dest, sym::Some)?;
                     let field_place = ecx.project_field(&variant_place, FieldIdx::ZERO)?;
-                    let sig = sig.skip_binder(); // FIXME: handle lifetime bounds
-                    ecx.write_fn_ptr_type_info(field_place, &sig, fn_header)?;
+                    ecx.write_fn_ptr_type_info(field_place, &sig, &fn_header)?;
                     variant
                 } else {
                     ecx.project_downcast_named(dest, sym::None)?.0

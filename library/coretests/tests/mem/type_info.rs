@@ -4,6 +4,24 @@ use std::any::{Any, TypeId};
 use std::mem::offset_of;
 use std::mem::type_info::{Const, Generic, GenericType, Type, TypeKind};
 
+#[meta::reflected_function]
+fn reflected_free_function() -> u8 {
+    0
+}
+
+struct ReflectedFunctionMethods;
+
+impl ReflectedFunctionMethods {
+    #[meta::reflected_method]
+    fn reflected_method() -> u8 {
+        0
+    }
+}
+
+const fn type_id_of_value<T: 'static>(_: &T) -> TypeId {
+    TypeId::of::<T>()
+}
+
 #[test]
 fn test_attributes() {
     #[meta::record]
@@ -46,6 +64,31 @@ fn test_attributes() {
         assert!(!TypeId::of::<UntaggedSampleType>().has_attr("meta::record"));
         assert!(!TypeId::of::<ParsedSampleType>().has_attr("repr"));
         assert!(!TypeId::of::<u8>().has_attr("meta::record"));
+    }
+}
+
+#[test]
+fn test_local_reflected_items() {
+    const {
+        let mut found_free_function = false;
+        let mut found_associated_function = false;
+        let functions = std::mem::type_info::local_functions();
+        let mut i = 0;
+
+        while i < functions.len() {
+            let function = functions[i];
+            found_free_function |= function.has_attr("meta::reflected_function");
+            found_associated_function |= function.has_attr("meta::reflected_method");
+            i += 1;
+        }
+
+        assert!(found_free_function);
+        assert!(found_associated_function);
+
+        let function_item = type_id_of_value(&reflected_free_function);
+        assert!(function_item.function_ptr().unwrap().output() == TypeId::of::<u8>());
+
+        assert!(!std::mem::type_info::local_modules().is_empty());
     }
 }
 

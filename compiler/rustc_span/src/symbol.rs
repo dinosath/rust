@@ -2243,6 +2243,8 @@ symbols! {
         type_id_generics,
         type_id_has_attr,
         type_id_is_signed,
+        type_id_local_functions,
+        type_id_local_modules,
         type_id_non_exhaustive,
         type_id_points_mutably,
         type_id_points_to,
