@@ -1,0 +1,13 @@
+error: comptime functions can only be called at compile time
+  --> $DIR/attributes_runtime_has_attr.rs:10:22
+   |
+LL |     let has_record = TypeId::of::<SampleType>().has_attr("meta::record");
+   |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+help: wrap the call in a const block to force compile time evaluation
+   |
+LL |     let has_record = const { TypeId::of::<SampleType>().has_attr("meta::record") };
+   |                      +++++++                                                     +
+
+error: aborting due to 1 previous error
+

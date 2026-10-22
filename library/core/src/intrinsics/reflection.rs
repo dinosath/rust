@@ -192,3 +192,11 @@ pub fn type_id_points_mutably(_id: crate::any::TypeId) -> bool;
 #[unstable(feature = "core_intrinsics", issue = "none")]
 #[rustc_comptime]
 pub fn type_id_function_ptr(_type_id: crate::any::TypeId) -> Option<crate::mem::type_info::FnPtr>;
+
+/// Returns whether the type represented by `id` carries the unparsed attribute `attr`.
+///
+/// The more user-friendly version of this intrinsic is [`core::any::TypeId::has_attr`].
+#[rustc_intrinsic]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+#[rustc_comptime]
+pub fn type_id_has_attr(_id: crate::any::TypeId, _attr: &'static str) -> bool;

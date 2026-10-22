@@ -5,6 +5,51 @@ use std::mem::offset_of;
 use std::mem::type_info::{Const, Generic, GenericType, Type, TypeKind};
 
 #[test]
+fn test_attributes() {
+    #[meta::record]
+    struct SampleType;
+
+    #[meta::nested]
+    struct NestedSampleType {
+        sample: SampleType,
+    }
+
+    #[meta::outer]
+    struct OuterSampleType {
+        nested: NestedSampleType,
+    }
+
+    struct UntaggedSampleType;
+
+    #[repr(C)]
+    struct ParsedSampleType;
+
+    #[rustfmt::skip]
+    struct RustfmtSkippedSampleType;
+
+    #[meta::record]
+    fn attribute_function() {}
+
+    const fn type_id_of_value<T: 'static>(_: &T) -> TypeId {
+        TypeId::of::<T>()
+    }
+
+    const {
+        let sample = TypeId::of::<SampleType>();
+        assert!(TypeId::of::<RustfmtSkippedSampleType>().has_attr("rustfmt::skip"));
+        assert!(sample.has_attr("meta::record"));
+        assert!(type_id_of_value(&attribute_function).has_attr("meta::record"));
+        let nested = TypeId::of::<OuterSampleType>().field(0, 0).type_id();
+        assert!(nested.has_attr("meta::nested"));
+        assert!(!nested.has_attr("meta::outer"));
+        assert!(!sample.has_attr("meta::missing"));
+        assert!(!TypeId::of::<UntaggedSampleType>().has_attr("meta::record"));
+        assert!(!TypeId::of::<ParsedSampleType>().has_attr("repr"));
+        assert!(!TypeId::of::<u8>().has_attr("meta::record"));
+    }
+}
+
+#[test]
 fn test_arrays() {
     // Normal array.
     assert!(matches!(Type::of::<[u16; 4]>().kind, TypeKind::Array));
