@@ -584,9 +584,8 @@ impl TypeId {
     /// #[meta::record(label = "example")]
     /// struct SampleType;
     ///
-    /// const {
-    ///     assert!(TypeId::of::<SampleType>().attr_value("meta::record", "label") == Some("example"));
-    /// }
+    /// const LABEL: Option<&'static str> =
+    ///     TypeId::of::<SampleType>().attr_value("meta::record", "label");
     /// ```
     #[unstable(feature = "type_info", issue = "146922")]
     #[rustc_const_unstable(feature = "type_info", issue = "146922")]

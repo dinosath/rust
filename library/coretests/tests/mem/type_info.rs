@@ -13,6 +13,9 @@ fn test_attribute_values() {
     #[meta::format = "toml"]
     struct FormatSampleType;
 
+    #[meta::empty = ""]
+    struct EmptyValueSampleType;
+
     #[meta::record(label = "line\nbreak", version = 1_000)]
     struct LiteralSampleType;
 
@@ -37,6 +40,7 @@ fn test_attribute_values() {
         assert!(sample.attr_value("meta::record", "group") == Some("settings"));
         assert!(sample.attr_value("meta::record", "label") == Some("primary"));
         assert!(TypeId::of::<FormatSampleType>().attr_value("meta::format", "") == Some("toml"));
+        assert!(TypeId::of::<EmptyValueSampleType>().attr_value("meta::empty", "") == Some(""));
         assert!(TypeId::of::<LiteralSampleType>().attr_value("meta::record", "label")
             == Some("line\nbreak"));
         assert!(TypeId::of::<LiteralSampleType>().attr_value("meta::record", "version")
