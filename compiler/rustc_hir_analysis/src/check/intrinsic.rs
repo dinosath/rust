@@ -204,9 +204,13 @@ fn intrinsic_operation_unsafety(tcx: TyCtxt<'_>, intrinsic_id: LocalDefId) -> hi
         | sym::type_id_eq
         | sym::type_id_field_representing_type
         | sym::type_id_fields
+        | sym::type_id_function_module_path
+        | sym::type_id_function_name
         | sym::type_id_function_ptr
         | sym::type_id_generics
         | sym::type_id_has_attr
+        | sym::type_id_is_async_fn
+        | sym::type_id_is_const_fn
         | sym::type_id_is_signed
         | sym::type_id_local_functions
         | sym::type_id_local_modules
@@ -360,6 +364,15 @@ pub(crate) fn check_intrinsic_type(
             let option_args = tcx.mk_args(&[fn_ptr_ty.into()]);
             let option_fn_ptr_ty = Ty::new_adt(tcx, option_adt_ref, option_args);
             (0, 0, vec![type_id_ty()], option_fn_ptr_ty)
+        }
+        sym::type_id_function_name | sym::type_id_function_module_path => (
+            0,
+            0,
+            vec![type_id_ty()],
+            Ty::new_option(tcx, Ty::new_static_str(tcx)),
+        ),
+        sym::type_id_is_async_fn | sym::type_id_is_const_fn => {
+            (0, 0, vec![type_id_ty()], tcx.types.bool)
         }
         sym::type_id_is_signed => (0, 0, vec![type_id_ty()], tcx.types.bool),
         sym::type_id_points_mutably => (0, 0, vec![type_id_ty()], tcx.types.bool),

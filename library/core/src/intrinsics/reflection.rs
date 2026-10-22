@@ -41,6 +41,30 @@ pub fn type_id_local_functions() -> &'static [crate::any::TypeId];
 #[unstable(feature = "core_intrinsics", issue = "none")]
 pub fn type_id_local_modules() -> &'static [&'static str];
 
+/// Returns the name of a function item represented by a `TypeId`.
+#[rustc_intrinsic]
+#[rustc_comptime]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+pub fn type_id_function_name(_id: crate::any::TypeId) -> Option<&'static str>;
+
+/// Returns the local module path containing a function item represented by a `TypeId`.
+#[rustc_intrinsic]
+#[rustc_comptime]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+pub fn type_id_function_module_path(_id: crate::any::TypeId) -> Option<&'static str>;
+
+/// Returns whether a function item represented by a `TypeId` is asynchronous.
+#[rustc_intrinsic]
+#[rustc_comptime]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+pub fn type_id_is_async_fn(_id: crate::any::TypeId) -> bool;
+
+/// Returns whether a function item represented by a `TypeId` is const.
+#[rustc_intrinsic]
+#[rustc_comptime]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+pub fn type_id_is_const_fn(_id: crate::any::TypeId) -> bool;
+
 /// Tests (at compile-time) if two [`crate::any::TypeId`] instances identify the
 /// same type. This is necessary because at const-eval time the actual discriminating
 /// data is opaque and cannot be inspected directly.

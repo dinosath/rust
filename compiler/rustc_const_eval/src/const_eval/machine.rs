@@ -664,6 +664,63 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
                 )?;
             }
 
+            sym::type_id_function_name => {
+                let ty = ecx.read_type_id(&args[0])?;
+                let name = match ty.kind() {
+                    ty::FnDef(def_id, _) => Some(ecx.tcx.item_name(*def_id)),
+                    _ => None,
+                };
+                let variant = if let Some(name) = name {
+                    let (variant, variant_place) = ecx.project_downcast_named(dest, sym::Some)?;
+                    let field_place = ecx.project_field(&variant_place, FieldIdx::ZERO)?;
+                    let str_place = ecx.allocate_str_dedup(name.as_str())?;
+                    let str_ptr = ecx.mplace_to_imm_ptr(&str_place, None)?;
+                    ecx.write_immediate(*str_ptr, &field_place)?;
+                    variant
+                } else {
+                    ecx.project_downcast_named(dest, sym::None)?.0
+                };
+                ecx.write_discriminant(variant, dest)?;
+            }
+
+            sym::type_id_function_module_path => {
+                let ty = ecx.read_type_id(&args[0])?;
+                let module_path = match ty.kind() {
+                    ty::FnDef(def_id, _) => def_id.as_local().map(|local_def_id| {
+                        let module = ecx.tcx.parent_module_from_def_id(local_def_id);
+                        ecx.tcx.def_path_str(module.to_def_id())
+                    }),
+                    _ => None,
+                };
+                let variant = if let Some(path) = module_path {
+                    let (variant, variant_place) = ecx.project_downcast_named(dest, sym::Some)?;
+                    let field_place = ecx.project_field(&variant_place, FieldIdx::ZERO)?;
+                    let str_place = ecx.allocate_str_dedup(&path)?;
+                    let str_ptr = ecx.mplace_to_imm_ptr(&str_place, None)?;
+                    ecx.write_immediate(*str_ptr, &field_place)?;
+                    variant
+                } else {
+                    ecx.project_downcast_named(dest, sym::None)?.0
+                };
+                ecx.write_discriminant(variant, dest)?;
+            }
+
+            sym::type_id_is_async_fn | sym::type_id_is_const_fn => {
+                let ty = ecx.read_type_id(&args[0])?;
+                let is_fn = match ty.kind() {
+                    ty::FnDef(def_id, _) => Some(*def_id),
+                    _ => None,
+                };
+                let value = is_fn.is_some_and(|def_id| {
+                    if intrinsic_name == sym::type_id_is_async_fn {
+                        ecx.tcx.asyncness(def_id).is_async()
+                    } else {
+                        ecx.tcx.is_const_fn(def_id)
+                    }
+                });
+                ecx.write_scalar(Scalar::from_bool(value), dest)?;
+            }
+
             sym::type_id_is_signed => {
                 let ty = ecx.read_type_id(&args[0])?;
                 ecx.write_scalar(Scalar::from_bool(ty.is_signed()), dest)?;

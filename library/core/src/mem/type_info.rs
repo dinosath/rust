@@ -628,6 +628,59 @@ impl TypeId {
         intrinsics::reflection::type_id_generics(self)
     }
 
+    /// Returns the name of the function represented by this `TypeId`.
+    /// Returns `None` if this does not represent a function item.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn function_name(self) -> Option<&'static str> {
+        intrinsics::reflection::type_id_function_name(self)
+    }
+
+    /// Returns the module path of a local function item represented by this `TypeId`.
+    /// Returns `None` for non-functions and functions from another crate.
+    ///
+    /// This can be compared with entries from [`local_modules`] to traverse the crate's
+    /// function inventory by module. The inventories are compile-time views of the current crate;
+    /// they do not create a runtime registry.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn function_module_path(self) -> Option<&'static str> {
+        intrinsics::reflection::type_id_function_module_path(self)
+    }
+
+    /// Returns whether this function item is `async fn`.
+    ///
+    /// Its signature returned by [`function_ptr`](Self::function_ptr) has the compiler's
+    /// lowered return type, which is an opaque future type for an async function.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn is_async_fn(self) -> bool {
+        intrinsics::reflection::type_id_is_async_fn(self)
+    }
+
+    /// Returns whether this function item is `const fn`.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn is_const_fn(self) -> bool {
+        intrinsics::reflection::type_id_is_const_fn(self)
+    }
+
+    /// Returns generic arguments for this type or function item.
+    ///
+    /// For a generic function from [`local_functions`], the function is represented with its
+    /// identity arguments, so its signature contains generic parameters rather than a concrete
+    /// instantiation. Bounds on those parameters are not included in this first version.
+    #[unstable(feature = "type_info", issue = "146922")]
+    #[rustc_const_unstable(feature = "type_info", issue = "146922")]
+    #[rustc_comptime]
+    pub fn generic_parameters(self) -> &'static [Generic] {
+        self.generics()
+    }
+
     /// Given a `TypeId` that represents a pointer this returns the `TypeId`
     /// which that pointer points to. When called on anything else this returns
     /// None.

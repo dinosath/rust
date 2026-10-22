@@ -2,24 +2,153 @@
 
 use std::any::{Any, TypeId};
 use std::mem::offset_of;
-use std::mem::type_info::{Const, Generic, GenericType, Type, TypeKind};
+use std::mem::type_info::{Abi, Const, Generic, GenericType, Type, TypeKind};
 
-#[meta::reflected_function]
-fn reflected_free_function() -> u8 {
-    0
+const fn path_ends_with(path: &str, suffix: &str) -> bool {
+    let path = path.as_bytes();
+    let suffix = suffix.as_bytes();
+    if path.len() < suffix.len() {
+        return false;
+    }
+
+    let offset = path.len() - suffix.len();
+    let mut i = 0;
+    while i < suffix.len() {
+        if path[offset + i] != suffix[i] {
+            return false;
+        }
+        i += 1;
+    }
+    true
 }
 
-struct ReflectedFunctionMethods;
+const LOCAL_MODULES: &[&str] = std::mem::type_info::local_modules();
 
-impl ReflectedFunctionMethods {
-    #[meta::reflected_method]
-    fn reflected_method() -> u8 {
-        0
+mod reflection_fixture {
+    pub mod api {
+        #[meta::http_get]
+        pub fn get_user(id: u32) -> bool {
+            id != 0
+        }
+
+        #[meta::http_post]
+        pub fn create_user(id: u32) -> bool {
+            id == 7
+        }
+
+        #[meta::generic_handler]
+        pub fn identity<T: Copy>(value: T) -> T {
+            value
+        }
+
+        #[meta::async_handler]
+        pub async fn fetch() -> u32 {
+            1
+        }
+
+        #[meta::const_handler]
+        pub const fn policy() -> u32 {
+            1
+        }
+
+        #[meta::unsafe_handler]
+        pub unsafe extern "C" fn signal() {}
+
+        pub struct Controller;
+
+        impl Controller {
+            #[meta::route]
+            pub fn health() -> bool {
+                true
+            }
+        }
+    }
+
+    pub mod jobs {
+        #[meta::scheduled]
+        pub fn prune_sessions() {}
+
+        pub struct Runner;
+
+        impl Runner {
+            #[meta::background]
+            pub fn refresh_cache() {}
+        }
     }
 }
 
-const fn type_id_of_value<T: 'static>(_: &T) -> TypeId {
-    TypeId::of::<T>()
+#[derive(Copy, Clone)]
+struct StaticRoute {
+    method: &'static str,
+    path: &'static str,
+    module_path: &'static str,
+    handler_name: &'static str,
+    handler: fn(u32) -> bool,
+}
+
+const HTTP_ROUTE_COUNT: usize = const {
+    let functions = std::mem::type_info::local_functions();
+    let mut count = 0;
+    let mut i = 0;
+    while i < functions.len() {
+        if functions[i].has_attr("meta::http_get") || functions[i].has_attr("meta::http_post") {
+            count += 1;
+        }
+        i += 1;
+    }
+    count
+};
+
+static HTTP_ROUTER: [StaticRoute; HTTP_ROUTE_COUNT] = const {
+    let empty_route = StaticRoute {
+        method: "",
+        path: "",
+        module_path: "",
+        handler_name: "",
+        handler: reflection_fixture::api::get_user,
+    };
+    let mut routes = [empty_route; HTTP_ROUTE_COUNT];
+    let mut count = 0;
+    let functions = std::mem::type_info::local_functions();
+    let mut i = 0;
+    while i < functions.len() {
+        let function = functions[i];
+        let method = if function.has_attr("meta::http_get") {
+            Some("GET")
+        } else if function.has_attr("meta::http_post") {
+            Some("POST")
+        } else {
+            None
+        };
+        if let Some(method) = method {
+            let Some(module_path) = function.function_module_path() else { panic!() };
+            let Some(handler_name) = function.function_name() else { panic!() };
+            let (path, handler) = if handler_name == "get_user" {
+                ("/api/users/{id}", reflection_fixture::api::get_user as fn(u32) -> bool)
+            } else if handler_name == "create_user" {
+                ("/api/users", reflection_fixture::api::create_user as fn(u32) -> bool)
+            } else {
+                panic!()
+            };
+            routes[count] = StaticRoute { method, path, module_path, handler_name, handler };
+            count += 1;
+        }
+        i += 1;
+    }
+    assert!(count == HTTP_ROUTE_COUNT);
+    routes
+};
+
+fn dispatch_http_route(method: &str, path: &str, id: u32) -> Option<bool> {
+    let mut i = 0;
+    while i < HTTP_ROUTER.len() {
+        let route = HTTP_ROUTER[i];
+        if route.method == method && route.path == path {
+            return Some((route.handler)(id));
+        }
+        i += 1;
+    }
+    None
 }
 
 #[test]
@@ -69,27 +198,135 @@ fn test_attributes() {
 
 #[test]
 fn test_local_reflected_items() {
+    assert!(HTTP_ROUTER.len() == 2);
+    assert!(HTTP_ROUTER.iter().any(|route| {
+        route.method == "GET"
+            && route.path == "/api/users/{id}"
+            && path_ends_with(route.module_path, "api")
+            && route.handler_name == "get_user"
+    }));
+    assert!(HTTP_ROUTER.iter().any(|route| {
+        route.method == "POST"
+            && route.path == "/api/users"
+            && path_ends_with(route.module_path, "api")
+            && route.handler_name == "create_user"
+    }));
+
     const {
-        let mut found_free_function = false;
-        let mut found_associated_function = false;
+        let mut http_gets = 0;
+        let mut http_posts = 0;
+        let mut routes = 0;
+        let mut scheduled_jobs = 0;
+        let mut background_jobs = 0;
+        let mut found_get_signature = false;
+        let mut found_generic_signature = false;
+        let mut found_async_function = false;
+        let mut found_const_function = false;
+        let mut found_unsafe_c_function = false;
+        let mut api_routes = 0;
+        let mut job_functions = 0;
         let functions = std::mem::type_info::local_functions();
+        let modules = std::mem::type_info::local_modules();
         let mut i = 0;
 
         while i < functions.len() {
             let function = functions[i];
-            found_free_function |= function.has_attr("meta::reflected_function");
-            found_associated_function |= function.has_attr("meta::reflected_method");
+            if function.has_attr("meta::http_get") {
+                http_gets += 1;
+                let signature = function.function_ptr().unwrap();
+                found_get_signature = signature.inputs().len() == 1
+                    && signature.inputs()[0] == TypeId::of::<u32>()
+                    && signature.output() == TypeId::of::<bool>()
+                    && function.function_name() == Some("get_user");
+            }
+            if function.has_attr("meta::http_post") {
+                http_posts += 1;
+            }
+            if function.has_attr("meta::route") {
+                routes += 1;
+            }
+            if function.has_attr("meta::scheduled") {
+                scheduled_jobs += 1;
+            }
+            if function.has_attr("meta::background") {
+                background_jobs += 1;
+            }
+            if function.has_attr("meta::route")
+                || function.has_attr("meta::scheduled")
+                || function.has_attr("meta::background")
+            {
+                if let Some(path) = function.function_module_path() {
+                    let mut m = 0;
+                    while m < modules.len() {
+                        if modules[m] == path {
+                            if function.has_attr("meta::route") {
+                                api_routes += 1;
+                            }
+                            if function.has_attr("meta::scheduled")
+                                || function.has_attr("meta::background")
+                            {
+                                job_functions += 1;
+                            }
+                        }
+                        m += 1;
+                    }
+                }
+            }
+            if function.has_attr("meta::generic_handler") {
+                let generics = function.generic_parameters();
+                let signature = function.function_ptr().unwrap();
+                if let [Generic::Type(GenericType { ty, .. })] = generics {
+                    found_generic_signature = function.function_name() == Some("identity")
+                        && signature.inputs().len() == 1
+                        && signature.inputs()[0] == *ty
+                        && signature.output() == *ty;
+                }
+            }
+            if function.has_attr("meta::async_handler") {
+                found_async_function = function.function_name() == Some("fetch")
+                    && function.is_async_fn()
+                    && function.function_ptr().is_some();
+            }
+            if function.has_attr("meta::const_handler") {
+                found_const_function = function.function_name() == Some("policy")
+                    && function.is_const_fn();
+            }
+            if function.has_attr("meta::unsafe_handler") {
+                let signature = function.function_ptr().unwrap();
+                found_unsafe_c_function = function.function_name() == Some("signal")
+                    && signature.is_unsafe()
+                    && matches!(signature.abi(), Abi::ExternC);
+            }
             i += 1;
         }
 
-        assert!(found_free_function);
-        assert!(found_associated_function);
+        assert!(http_gets == 1);
+        assert!(http_posts == 1);
+        assert!(routes == 1);
+        assert!(scheduled_jobs == 1);
+        assert!(background_jobs == 1);
+        assert!(found_get_signature);
+        assert!(found_generic_signature);
+        assert!(found_async_function);
+        assert!(found_const_function);
+        assert!(found_unsafe_c_function);
 
-        let function_item = type_id_of_value(&reflected_free_function);
-        assert!(function_item.function_ptr().unwrap().output() == TypeId::of::<u8>());
-
-        assert!(!std::mem::type_info::local_modules().is_empty());
+        assert!(api_routes == 1);
+        assert!(job_functions == 2);
     }
+
+    assert!(LOCAL_MODULES.iter().any(|path| path_ends_with(path, "api")));
+    assert!(LOCAL_MODULES.iter().any(|path| path_ends_with(path, "jobs")));
+}
+
+#[test]
+fn test_reflected_router_routes_and_invokes_handlers() {
+    assert_eq!(dispatch_http_route("GET", "/api/users/{id}", 42), Some(true));
+    assert_eq!(dispatch_http_route("GET", "/api/users/{id}", 0), Some(false));
+    assert_eq!(dispatch_http_route("POST", "/api/users", 7), Some(true));
+    assert_eq!(dispatch_http_route("POST", "/api/users", 42), Some(false));
+    assert_eq!(dispatch_http_route("POST", "/api/users/{id}", 42), None);
+    assert_eq!(dispatch_http_route("DELETE", "/api/users", 7), None);
 }
 
 #[test]
