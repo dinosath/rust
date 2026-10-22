@@ -891,6 +891,22 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
                 ecx.write_type_id(field_ty, dest)?;
             }
 
+            sym::type_id_has_attr => {
+                let ty = ecx.read_type_id(&args[0])?;
+                let attr_place = ecx.deref_pointer(&args[1])?;
+                let attr = ecx.read_str(&attr_place)?;
+                let def_id = match ty.kind() {
+                    ty::Adt(def, _) => Some(def.did()),
+                    ty::FnDef(def_id, _) => Some(*def_id),
+                    _ => None,
+                };
+                let attr_path = attr.split("::").map(Symbol::intern).collect::<Vec<_>>();
+                let has = def_id.is_some_and(|def_id| {
+                    ecx.tcx.get_attrs_by_path(def_id, &attr_path).next().is_some()
+                });
+                ecx.write_scalar(Scalar::from_bool(has), dest)?;
+            }
+
             sym::type_id_generics => {
                 let ty = ecx.read_type_id(&args[0])?;
                 ecx.write_type_id_generics(dest, ty)?;
