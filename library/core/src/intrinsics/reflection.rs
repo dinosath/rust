@@ -236,3 +236,16 @@ pub fn type_id_function_ptr(_type_id: crate::any::TypeId) -> Option<crate::mem::
 #[unstable(feature = "core_intrinsics", issue = "none")]
 #[rustc_comptime]
 pub fn type_id_has_attr(_id: crate::any::TypeId, _attr_name: &'static str) -> bool;
+
+/// Returns a literal value from the attribute `attr` on the type represented by `id`.
+///
+/// The more user-friendly version of this intrinsic is [`core::any::TypeId::attr_value`].
+#[rustc_intrinsic]
+#[unstable(feature = "core_intrinsics", issue = "none")]
+#[rustc_comptime]
+pub fn type_id_attr_value(
+    _id: crate::any::TypeId,
+    _attr: &'static str,
+    _key: &'static str,
+) -> Option<&'static str>;
+

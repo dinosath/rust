@@ -151,30 +151,31 @@ fn dispatch_http_route(method: &str, path: &str, id: u32) -> Option<bool> {
     None
 }
 
+#[allow(deprecated)]
 #[test]
-fn test_attributes() {
-    #[meta::record]
+fn test_attribute_values() {
+    #[meta::record(group = "settings", label = "primary")]
     struct SampleType;
 
-    #[meta::nested]
-    struct NestedSampleType {
-        sample: SampleType,
-    }
+    #[meta::format = "toml"]
+    struct FormatSampleType;
 
-    #[meta::outer]
-    struct OuterSampleType {
-        nested: NestedSampleType,
-    }
+    #[meta::empty = ""]
+    struct EmptyValueSampleType;
+
+    #[meta::record(label = "line\nbreak", version = 1_000)]
+    struct LiteralSampleType;
+
+    #[meta::duplicate(label = "first")]
+    #[meta::duplicate(label = "second")]
+    struct DuplicateSampleType;
+
+    #[deprecated(note = "parsed attribute")]
+    struct ParsedAttributeSampleType;
 
     struct UntaggedSampleType;
 
-    #[repr(C)]
-    struct ParsedSampleType;
-
-    #[rustfmt::skip]
-    struct RustfmtSkippedSampleType;
-
-    #[meta::record]
+    #[meta::record(label = "function")]
     fn attribute_function() {}
 
     const fn type_id_of_value<T: 'static>(_: &T) -> TypeId {
@@ -183,16 +184,23 @@ fn test_attributes() {
 
     const {
         let sample = TypeId::of::<SampleType>();
-        assert!(TypeId::of::<RustfmtSkippedSampleType>().has_attr("rustfmt::skip"));
-        assert!(sample.has_attr("meta::record"));
-        assert!(type_id_of_value(&attribute_function).has_attr("meta::record"));
-        let nested = TypeId::of::<OuterSampleType>().field(0, 0).type_id();
-        assert!(nested.has_attr("meta::nested"));
-        assert!(!nested.has_attr("meta::outer"));
-        assert!(!sample.has_attr("meta::missing"));
-        assert!(!TypeId::of::<UntaggedSampleType>().has_attr("meta::record"));
-        assert!(!TypeId::of::<ParsedSampleType>().has_attr("repr"));
-        assert!(!TypeId::of::<u8>().has_attr("meta::record"));
+        assert!(sample.attr_value("meta::record", "group") == Some("settings"));
+        assert!(sample.attr_value("meta::record", "label") == Some("primary"));
+        assert!(TypeId::of::<FormatSampleType>().attr_value("meta::format", "") == Some("toml"));
+        assert!(TypeId::of::<EmptyValueSampleType>().attr_value("meta::empty", "") == Some(""));
+        assert!(TypeId::of::<LiteralSampleType>().attr_value("meta::record", "label")
+            == Some("line\nbreak"));
+        assert!(TypeId::of::<LiteralSampleType>().attr_value("meta::record", "version")
+            == Some("1_000"));
+        assert!(TypeId::of::<DuplicateSampleType>().attr_value("meta::duplicate", "label")
+            == Some("first"));
+        assert!(TypeId::of::<ParsedAttributeSampleType>().attr_value("deprecated", "note") == None);
+        assert!(type_id_of_value(&attribute_function).attr_value("meta::record", "label")
+            == Some("function"));
+        assert!(sample.attr_value("meta::record", "missing") == None);
+        assert!(sample.attr_value("meta::missing", "key") == None);
+        assert!(TypeId::of::<UntaggedSampleType>().attr_value("meta::record", "group") == None);
+        assert!(TypeId::of::<u8>().attr_value("meta::record", "group") == None);
     }
 }
 

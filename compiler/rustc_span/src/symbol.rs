@@ -2235,6 +2235,7 @@ symbols! {
         type_changing_struct_update,
         type_id,
         type_id_array_len,
+        type_id_attr_value,
         type_id_element_ty,
         type_id_eq,
         type_id_field_representing_type,
