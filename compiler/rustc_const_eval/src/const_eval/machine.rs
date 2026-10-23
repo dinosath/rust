@@ -1021,6 +1021,37 @@ impl<'tcx> interpret::Machine<'tcx> for CompileTimeMachine<'tcx> {
                 ecx.write_type_id_generics(dest, ty)?;
             }
 
+            sym::type_id_attr_value => {
+                let ty = ecx.read_type_id(&args[0])?;
+                let attr_place = ecx.deref_pointer(&args[1])?;
+                let attr = ecx.read_str(&attr_place)?.to_owned();
+                let key_place = ecx.deref_pointer(&args[2])?;
+                let key = ecx.read_str(&key_place)?.to_owned();
+                let def_id = match ty.kind() {
+                    ty::Adt(def, _) => Some(def.did()),
+                    ty::FnDef(def_id, _) => Some(*def_id),
+                    _ => None,
+                };
+                let value = def_id.and_then(|def_id| ecx.def_attr_value(def_id, &attr, &key));
+                let variant = if let Some(value) = value {
+                    let (variant, variant_place) = ecx.project_downcast_named(dest, sym::Some)?;
+                    let field_place = ecx.project_field(&variant_place, FieldIdx::ZERO)?;
+                    let ptr = ecx.allocate_bytes_dedup(value.as_str().as_bytes())?;
+                    ecx.write_immediate(
+                        Immediate::ScalarPair(
+                            Scalar::from_pointer(ptr, ecx),
+                            Scalar::from_target_usize(value.as_str().len() as u64, ecx),
+                        ),
+                        &field_place,
+                    )?;
+                    variant
+                } else {
+                    ecx.project_downcast_named(dest, sym::None)?.0
+                };
+                ecx.write_discriminant(variant, dest)?;
+            }
+
+
             sym::type_id_non_exhaustive => {
                 let ty = ecx.read_type_id(&args[0])?;
 
